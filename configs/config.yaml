@@ -1,0 +1,53 @@
+# Main (production) pipeline configuration.
+# Paths are relative to the project root (run commands from there).
+# Experiment configs (configs/baseline_*.yaml) extend this file.
+
+data:
+  raw_path: data/raw/creditcard.csv   # Kaggle "Credit Card Fraud Detection" (ULB) CSV
+  openml_id: 1597                     # same dataset on OpenML, used for auto-download
+  target: Class
+  drop_duplicates: true               # removes the 1,081 exact duplicate rows (as in the notebook)
+  test_size: 0.20                     # held-out test set - identical rows to the notebook's split
+  val_size: 0.20                      # fraction of the remaining data for early stopping + threshold (0 = none)
+  random_state: 42
+
+features:
+  engineer_features: true             # false = raw Time, V1..V28, Amount only (notebook behaviour)
+  top_k_signal: 4                     # strongest +/- correlated V-components used for composite signals
+  night_start_hour: 0
+  night_end_hour: 6
+  micro_amount: 2.0                   # amounts below this are flagged as "card-testing" sized
+
+imbalance:
+  strategy: scale_pos_weight          # scale_pos_weight | smote | none
+
+model:
+  type: xgboost                       # xgboost | logistic_regression
+  xgboost:
+    n_estimators: 1000                # upper bound; early stopping picks the real number
+    learning_rate: 0.05
+    max_depth: 6
+    min_child_weight: 1
+    subsample: 0.8
+    colsample_bytree: 0.8
+    reg_lambda: 1.0
+    tree_method: hist
+    eval_metric: aucpr                # PR-AUC is the right metric for heavy imbalance
+    early_stopping_rounds: 50
+  logistic_regression:
+    max_iter: 1000
+
+threshold:
+  strategy: max_f1                    # max_f1 | recall_at_precision | fixed
+  target_precision: 0.90              # used by recall_at_precision
+  value: 0.5                          # used by fixed
+
+quality_gate:                         # a freshly trained model must clear these to be deployed
+  min_roc_auc: 0.95
+  min_precision: 0.70
+  min_recall: 0.70
+  max_pr_auc_regression: 0.02         # vs. the currently deployed model (if one exists)
+
+artifacts:
+  model_dir: models
+  reports_dir: reports

@@ -1,0 +1,33 @@
+# Reproduces the XGBoost + SMOTE model from notebooks/credit-card-fraud-detection.ipynb
+# (same hyperparameters, de-duplication, split and default 0.5 threshold).
+# Results land close to - but are not bit-identical with - the notebook, because XGBoost/SMOTE
+# versions and random seeds differ between environments.
+extends: configs/config.yaml
+
+data:
+  val_size: 0.0
+features:
+  engineer_features: false
+imbalance:
+  strategy: smote
+model:
+  type: xgboost
+  xgboost:
+    n_estimators: 500
+    learning_rate: 0.1
+    max_depth: 4
+    min_child_weight: 3
+    subsample: 0.7
+    colsample_bytree: 0.7
+    gamma: 1
+    reg_alpha: 2
+    reg_lambda: 2
+    tree_method: null                 # library default
+    eval_metric: null
+    early_stopping_rounds: null
+threshold:
+  strategy: fixed
+  value: 0.5
+artifacts:
+  model_dir: models/baseline_xgb_smote
+  reports_dir: reports/baseline_xgb_smote

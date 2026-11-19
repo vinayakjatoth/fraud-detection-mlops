@@ -1,0 +1,33 @@
+{
+  "threshold": 0.9851442575454712,
+  "precision": 0.9857142857142858,
+  "recall": 0.7263157894736842,
+  "f1": 0.8363636363636363,
+  "roc_auc": 0.9690444447954187,
+  "pr_auc": 0.8164267899473148,
+  "confusion_matrix": {
+    "tn": 56650,
+    "fp": 1,
+    "fn": 26,
+    "tp": 69
+  },
+  "n_samples": 56746,
+  "n_fraud": 95,
+  "data_source": "real",
+  "model_metadata": {
+    "trained_at": "2026-11-19T21:01:27+00:00",
+    "data_source": "real",
+    "model_type": "xgboost",
+    "imbalance_strategy": "scale_pos_weight",
+    "engineer_features": true,
+    "n_train": 181584,
+    "n_val": 45396,
+    "n_test": 56746,
+    "train_fraud_rate": 0.0016631421270596528,
+    "scale_pos_weight": 600.2715231788079,
+    "best_iteration": 237,
+    "threshold": 0.9851442575454712,
+    "xgboost_version": "3.4.1",
+    "sklearn_version": "1.9.1"
+  }
+}

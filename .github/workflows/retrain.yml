@@ -1,0 +1,166 @@
+name: Retrain, Evaluate & Deploy
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # every Monday 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      use_synthetic:
+        description: "Use synthetic data (smoke test; never deploys)"
+        type: boolean
+        default: false
+      deploy:
+        description: "Publish release + Docker image when the quality gate passes"
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "configs/**"
+      - "requirements.txt"
+
+concurrency:
+  group: retrain-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  train:
+    name: Train -> evaluate -> quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DATA_FLAGS: ${{ github.event.inputs.use_synthetic == 'true' && '--synthetic' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -e .
+
+      - name: Restore dataset cache
+        if: ${{ github.event.inputs.use_synthetic != 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: creditcard-dataset-v1
+
+      - name: Download dataset
+        if: ${{ github.event.inputs.use_synthetic != 'true' }}
+        run: python scripts/download_data.py
+
+      - name: Train
+        run: python -m fraud_detection.train $DATA_FLAGS
+
+      - name: Evaluate on held-out test set
+        run: python -m fraud_detection.evaluate $DATA_FLAGS
+
+      # Metrics of the model that is currently deployed (latest release), if any.
+      - name: Fetch deployed model metrics
+        continue-on-error: true
+        run: |
+          mkdir -p baseline
+          gh release download --repo "${{ github.repository }}" \
+            --pattern metrics.json --dir baseline \
+            || echo "No previous release found - first deployment."
+
+      - name: Quality gate
+        run: |
+          BASELINE=""
+          if [ -f baseline/metrics.json ]; then BASELINE="--baseline baseline/metrics.json"; fi
+          python -m fraud_detection.quality_gate $BASELINE
+
+      - name: Upload model bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-bundle
+          path: |
+            models/fraud_model.joblib
+            models/train_info.json
+            reports/
+          retention-days: 30
+
+  deploy:
+    name: Publish model release & Docker image
+    needs: train # only runs when the quality gate passed
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event.inputs.use_synthetic != 'true' &&
+      github.event.inputs.deploy != 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release
+      packages: write # push to GHCR
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: model-bundle
+          path: .
+
+      - name: Publish GitHub Release (model + metrics)
+        run: |
+          TAG="model-$(date -u +%Y%m%d-%H%M%S)"
+          cp reports/metrics.json metrics.json
+          gh release create "$TAG" \
+            models/fraud_model.joblib models/train_info.json metrics.json \
+            --target "${{ github.sha }}" \
+            --title "Fraud model $TAG" \
+            --notes "Automated retrain (run ${{ github.run_id }}, commit ${{ github.sha }}). Metrics are in metrics.json."
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image (local, for smoke test)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: fraud-api:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke-test container
+        run: |
+          docker run -d --name api -p 8000:8000 fraud-api:test
+          for i in $(seq 1 20); do
+            if curl -fsS http://localhost:8000/health | grep -q '"model_loaded":true'; then
+              echo "API healthy"; exit 0
+            fi
+            sleep 2
+          done
+          docker logs api
+          exit 1
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest
+            type=sha
+
+      - name: Push image to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
