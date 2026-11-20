@@ -1,7 +1,7 @@
 # Online Fraud Detection & Automated ML Pipeline
 
-[![CI](https://github.com/YOUR_USERNAME/fraud-detection-mlops/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/fraud-detection-mlops/actions/workflows/ci.yml)
-[![Retrain](https://github.com/YOUR_USERNAME/fraud-detection-mlops/actions/workflows/retrain.yml/badge.svg)](https://github.com/YOUR_USERNAME/fraud-detection-mlops/actions/workflows/retrain.yml)
+[![CI](https://github.com/vinayakjatoth/fraud-detection-mlops/actions/workflows/ci.yml/badge.svg)](https://github.com/vinayakjatoth/fraud-detection-mlops/actions/workflows/ci.yml)
+[![Retrain](https://github.com/vinayakjatoth/fraud-detection-mlops/actions/workflows/retrain.yml/badge.svg)](https://github.com/vinayakjatoth/fraud-detection-mlops/actions/workflows/retrain.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -58,7 +58,7 @@ only one false alarm on this test set.
 ## Quick start
 
 ```powershell
-git clone https://github.com/YOUR_USERNAME/fraud-detection-mlops.git
+git clone https://github.com/vinayakjatoth/fraud-detection-mlops.git
 Set-Location fraud-detection-mlops
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
@@ -86,7 +86,7 @@ metrics are for smoke-testing only and are never written to the results table.
 **On Kaggle:** enable Internet, then
 
 ```python
-!git clone https://github.com/YOUR_USERNAME/fraud-detection-mlops.git
+!git clone https://github.com/vinayakjatoth/fraud-detection-mlops.git
 %cd fraud-detection-mlops
 !pip install -q -e .
 %env FRAUD_DATA_PATH=/kaggle/input/creditcardfraud/creditcard.csv
@@ -140,8 +140,8 @@ Batch scoring from a CSV: `python -m fraud_detection.predict --input transaction
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `ci.yml` | push to `main`, pull requests | ruff lint + format check, pytest on Python 3.10-3.12, end-to-end smoke test on synthetic data |
-| `retrain.yml` | weekly (Mon 03:00 UTC), manual, or push to `main` touching `src/`, `configs/`, `requirements.txt` | download (cached) data -> train -> evaluate on the held-out test set -> **quality gate** -> upload artifacts -> on success: GitHub Release (model + metrics) and a smoke-tested Docker image pushed to GHCR |
+| `ci.yml` | push to `main` or `master`, pull requests | ruff lint + format check, pytest on Python 3.10-3.12, end-to-end smoke test on synthetic data |
+| `retrain.yml` | weekly (Mon 03:00 UTC), manual, or push to `main` or `master` touching `src/`, `configs/`, `requirements.txt` | download (cached) data -> train -> evaluate on the held-out test set -> **quality gate** -> upload artifacts -> on success: GitHub Release (model + metrics) and a smoke-tested Docker image pushed to GHCR |
 
 The **quality gate** (`configs/config.yaml -> quality_gate`) fails the run, and so blocks
 deployment, if ROC-AUC / precision / recall fall below the configured floors or if PR-AUC regresses

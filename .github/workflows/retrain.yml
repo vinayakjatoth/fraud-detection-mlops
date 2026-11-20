@@ -14,7 +14,7 @@ on:
         type: boolean
         default: true
   push:
-    branches: [main]
+    branches: [main, master]
     paths:
       - "src/**"
       - "configs/**"
@@ -92,7 +92,7 @@ jobs:
     name: Publish model release & Docker image
     needs: train # only runs when the quality gate passed
     if: >-
-      github.ref == 'refs/heads/main' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') &&
       github.event.inputs.use_synthetic != 'true' &&
       github.event.inputs.deploy != 'false'
     runs-on: ubuntu-latest
